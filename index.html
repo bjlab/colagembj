@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- html2canvas para exportação JPG -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- PDF.js para importar e converter arquivos PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
@@ -128,7 +130,7 @@
     <!-- Barra Superior Responsiva Otimizada para Celular -->
     <header class="bg-slate-900 border-b border-slate-800 px-2.5 py-2 flex items-center justify-between z-30 shrink-0 no-print flex-wrap gap-1.5 w-full">
         <div class="flex items-center space-x-2 shrink-0">
-            <!-- Botão de Tela Cheia adicionado no início de tudo -->
+            <!-- Botão de Tela Cheia -->
             <button onclick="toggleFullScreen()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors border border-slate-700 flex items-center space-x-1 text-xs font-semibold active:scale-95 shadow-sm" title="Alternar Tela Cheia">
                 <i data-lucide="maximize" class="w-4 h-4 text-emerald-400"></i>
                 <span class="text-xs hidden sm:inline">Tela Cheia</span>
@@ -148,15 +150,15 @@
             </div>
         </div>
 
-        <!-- Controles Principais do Topo - Otimizados e Alinhados à Esquerda sem Necessidade de Rolagem -->
+        <!-- Controles Principais do Topo -->
         <div class="flex items-center justify-start flex-wrap gap-1.5 py-0.5 flex-1 pl-2">
             
-            <!-- 1. Carregar Fotos -->
+            <!-- 1. Carregar Fotos / PDF -->
             <div class="bg-slate-950 p-1 rounded-lg border border-slate-800 flex items-center space-x-1 shrink-0">
-                <input type="file" id="file-input-top" multiple accept="image/*" class="hidden" onchange="handleFileUpload(event)">
-                <button onclick="document.getElementById('file-input-top').click()" class="px-2 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-500 text-white flex items-center space-x-1 shadow transition-all active:scale-95" title="Carregar fotos de alunos">
-                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Carregar</span>
+                <input type="file" id="file-input-top" multiple accept="image/*,application/pdf,.pdf" class="hidden" onchange="handleFileUpload(event)">
+                <button onclick="document.getElementById('file-input-top').click()" class="px-2.5 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-500 text-white flex items-center space-x-1.5 shadow transition-all active:scale-95" title="Carregar fotos ou arquivos PDF">
+                    <i data-lucide="file-plus" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Carregar Foto/PDF</span>
                 </button>
             </div>
 
@@ -210,7 +212,6 @@
                     <span class="hidden xl:inline text-xs">Girar</span>
                 </button>
                 <button onclick="deleteActiveImage()" class="p-1.5 text-rose-400 hover:bg-rose-900/50 hover:text-rose-300 rounded flex items-center space-x-1 text-xs" title="Excluir Foto">
-                    <i data-lucide="zoom-out" class="hidden"></i>
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
             </div>
@@ -249,10 +250,10 @@
     <!-- Fundo Escuro para Modal do Painel em Dispositivos Móveis -->
     <div id="sidebar-backdrop" onclick="closeSidebarMobile()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-30 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden no-print"></div>
 
-    <!-- Conteúdo Principal Ocupando 100% da Tela Restante -->
+    <!-- Conteúdo Principal -->
     <div id="app-root" class="flex-1 flex overflow-hidden relative w-full h-full">
         
-        <!-- Sidebar Esquerda Responsiva / Drawer para Telas Pequenas -->
+        <!-- Sidebar Esquerda Responsiva -->
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 flex flex-col transform -translate-x-full md:relative md:translate-x-0 md:max-w-none transition-transform duration-300 ease-in-out shrink-0 no-print shadow-2xl md:shadow-none">
             <div class="p-2.5 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
                 <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
@@ -266,16 +267,16 @@
 
             <div class="flex-1 overflow-y-auto p-3 space-y-4">
                 
-                <!-- 1. Envio de Imagens -->
+                <!-- 1. Envio de Imagens e PDF -->
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-semibold text-slate-300">1. Adicionar Fotos dos Alunos</label>
+                    <label class="block text-xs font-semibold text-slate-300">1. Adicionar Fotos ou PDF</label>
                     <div class="relative group">
-                        <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileUpload(event)">
-                        <button onclick="document.getElementById('file-input').click()" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-dashed border-indigo-500/50 hover:border-indigo-400 rounded-lg transition-all flex items-center justify-center space-x-2 text-left group-hover:scale-[1.01]">
-                            <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                        <input type="file" id="file-input" multiple accept="image/*,application/pdf,.pdf" class="hidden" onchange="handleFileUpload(event)">
+                        <button onclick="document.getElementById('file-input').click()" class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-dashed border-indigo-500/50 hover:border-indigo-400 rounded-lg transition-all flex items-center justify-center space-x-2 text-left group-hover:scale-[1.01]">
+                            <i data-lucide="file-up" class="w-5 h-5 text-indigo-400 shrink-0"></i>
                             <div>
-                                <span class="text-xs font-medium text-slate-200 block leading-tight">Carregar Fotos</span>
-                                <span class="text-[9px] text-slate-400 block leading-tight">Selecione fotos da galeria</span>
+                                <span class="text-xs font-medium text-slate-200 block leading-tight">Carregar Fotos ou PDF</span>
+                                <span class="text-[9px] text-slate-400 block leading-tight">Importe imagens ou documentos PDF</span>
                             </div>
                         </button>
                     </div>
@@ -434,7 +435,7 @@
             </div>
         </aside>
 
-        <!-- Área Visualizadora do Canvas A4 - Ocupação 100% Fluida sem Bordas Vazias -->
+        <!-- Área Visualizadora do Canvas A4 -->
         <main id="a4-container" class="flex-1 bg-slate-950 w-full h-full overflow-auto flex items-center justify-center p-2 sm:p-4 relative select-none" onclick="deselectAll(event)">
             
             <!-- Wrapper da Folha A4 para Escala Dinâmica -->
@@ -512,7 +513,7 @@
                     <!-- Linha Divisória de Corte para Cabeçalho Duplo -->
                     <div id="split-divider-line" class="hidden absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0 border-r-2 border-dashed border-slate-400/80 pointer-events-none z-20"></div>
 
-                    <!-- Margem de Segurança Fixa Obrigatoriamente em 0.5cm -->
+                    <!-- Margem de Segurança Fixa -->
                     <div id="safety-margin" class="absolute inset-[0.5cm] border border-dashed border-rose-400/80 pointer-events-none no-print z-0">
                         <span class="absolute top-0.5 left-1 text-[8px] font-mono text-rose-500 bg-white/90 px-1 rounded">Margem Fixa: 0,5 cm</span>
                     </div>
@@ -532,6 +533,11 @@
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none no-print"></div>
 
     <script>
+        // Configuração do Worker do PDF.js
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
         let images = [];
         let activeImageId = null;
         let orientation = 'landscape'; // 'landscape' | 'portrait'
@@ -572,7 +578,7 @@
             setOrientation('landscape', false);
             updatePrintStyle();
 
-            // Redimensionamento Dinâmico para ocupar perfeitamente a tela do smartphone
+            // Redimensionamento Dinâmico
             window.addEventListener('resize', () => {
                 fitToScreen();
             });
@@ -621,7 +627,7 @@
             }
         }
 
-        /* === STREAMING_CHUNK:Implementing Fullscreen Toggle... === */
+        /* === TELA CHEIA === */
         function toggleFullScreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
@@ -673,7 +679,7 @@
             }
         }
 
-        /* === UPLOAD E PROCESSAMENTO DE IMAGENS === */
+        /* === UPLOAD E PROCESSAMENTO DE IMAGENS E PDF === */
         function handleFileUpload(e) {
             if (e.target.files && e.target.files.length > 0) {
                 processFiles(e.target.files);
@@ -681,20 +687,28 @@
             }
         }
 
-        function processFiles(files) {
-            const fileList = Array.from(files).filter(f => f.type.startsWith('image/'));
-            if (fileList.length === 0) {
-                showToast("Por favor, selecione arquivos de imagem válidos.", "error");
-                return;
-            }
+        async function processPdfFile(file) {
+            try {
+                showToast(`Lendo PDF (${file.name})...`);
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const pdfImages = [];
 
-            let loadedCount = 0;
-            fileList.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const imgObj = {
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 2.0 }); // Render em alta definição
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    const dataUrl = canvas.toDataURL('image/png');
+
+                    pdfImages.push({
                         id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                        src: e.target.result,
+                        src: dataUrl,
                         xCm: 0.5,
                         yCm: 0.5,
                         widthCm: 10,
@@ -705,26 +719,69 @@
                         cropTop: 0,
                         cropBottom: 0,
                         objectFit: 'fill'
-                    };
-                    images.push(imgObj);
-                    loadedCount++;
+                    });
+                }
+                return pdfImages;
+            } catch (err) {
+                console.error("Erro ao processar arquivo PDF:", err);
+                showToast(`Erro ao ler o PDF: ${file.name}`, 'error');
+                return [];
+            }
+        }
 
-                    if (loadedCount === fileList.length) {
-                        if (images.length === 2) {
-                            applyPreset('side-by-side', false);
-                        } else if (images.length === 4) {
-                            applyPreset('grid-4', false);
-                        } else {
-                            applyPreset(lastPresetType, false);
-                        }
-                        
-                        selectImage(images[images.length - 1].id);
-                        saveState();
-                        showToast(`${fileList.length} foto(s) carregada(s)!`);
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
+        async function processFiles(files) {
+            const fileList = Array.from(files);
+            const loadedImages = [];
+
+            showToast("Processando arquivo(s)...");
+
+            for (const file of fileList) {
+                if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                    const pdfPages = await processPdfFile(file);
+                    loadedImages.push(...pdfPages);
+                } else if (file.type.startsWith('image/')) {
+                    const imgObj = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            resolve({
+                                id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                                src: e.target.result,
+                                xCm: 0.5,
+                                yCm: 0.5,
+                                widthCm: 10,
+                                heightCm: 10,
+                                rotation: 0,
+                                cropLeft: 0,
+                                cropRight: 0,
+                                cropTop: 0,
+                                cropBottom: 0,
+                                objectFit: 'fill'
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    loadedImages.push(imgObj);
+                }
+            }
+
+            if (loadedImages.length === 0) {
+                showToast("Nenhum arquivo de imagem ou PDF válido foi selecionado.", "error");
+                return;
+            }
+
+            images.push(...loadedImages);
+
+            if (images.length === 2) {
+                applyPreset('side-by-side', false);
+            } else if (images.length === 4) {
+                applyPreset('grid-4', false);
+            } else {
+                applyPreset(lastPresetType, false);
+            }
+
+            selectImage(images[images.length - 1].id);
+            saveState();
+            showToast(`${loadedImages.length} foto(s)/página(s) importada(s)!`);
         }
 
         /* === DESFAZER E REFAZER === */
@@ -931,7 +988,7 @@
                 applyPreset('side-by-side', true);
                 showToast("Imagem duplicada para os dois lados com sucesso!");
             } else if (images.length === 0) {
-                showToast("Carregue uma imagem primeiro antes de duplicar.", "error");
+                showToast("Carregue uma imagem ou PDF primeiro.", "error");
             } else {
                 showToast("Já existem várias imagens na folha.");
             }
