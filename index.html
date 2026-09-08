@@ -41,10 +41,14 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             transform-origin: center center;
             transition: width 0.2s, height 0.2s;
+            background-color: #ffffff !important;
+            background-image: radial-gradient(rgba(100, 116, 139, 0.15) 1px, transparent 1px);
+            background-size: 10px 10px;
         }
 
         /* Grid de fundo para alinhamento */
         .bg-grid-pattern {
+            background-color: #ffffff !important;
             background-image: radial-gradient(rgba(100, 116, 139, 0.2) 1px, transparent 1px);
             background-size: 10px 10px;
         }
@@ -442,7 +446,7 @@
             <div id="a4-wrapper" class="transition-transform duration-100 flex items-center justify-center m-auto">
                 
                 <!-- FOLHA A4 -->
-                <div id="a4-sheet" class="a4-sheet a4-landscape bg-white relative overflow-hidden border border-slate-400/30 transition-all duration-200 bg-grid-pattern flex flex-col" onclick="deselectAll(event)">
+                <div id="a4-sheet" class="a4-sheet a4-landscape bg-white relative overflow-hidden border border-slate-400/30 transition-all duration-200 bg-grid-pattern flex flex-col shadow-2xl" style="width: 297mm; height: 210mm;" onclick="deselectAll(event)">
                     
                     <!-- 1. Cabeçalho Geral (1 no topo) -->
                     <div id="school-header-single" class="hidden px-3 py-1 border-b-2 border-slate-900 bg-white text-slate-900 shrink-0 z-20">
@@ -747,39 +751,51 @@
 
         function applyPreset(presetName, recordUndo = true) {
             lastPresetType = presetName;
-            if (!images.length) return;
 
-            // Duplicação e orientação automática dependendo do layout selecionado
-            if (presetName === 'side-by-side' && images.length === 1) {
-                const original = images[0];
-                const copy = {
-                    ...original,
-                    id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                    crop: { ...(original.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
-                };
-                images.push(copy);
+            // Alterna a orientação imediatamente antes de processar as fotos
+            if (presetName === 'side-by-side') {
                 if (orientation !== 'landscape') {
                     setOrientation('landscape', false);
                 }
-            } else if (presetName === 'top-bottom' && images.length === 1) {
-                const original = images[0];
-                const copy = {
-                    ...original,
-                    id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                    crop: { ...(original.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
-                };
-                images.push(copy);
+            } else if (presetName === 'top-bottom') {
                 if (orientation !== 'portrait') {
                     setOrientation('portrait', false);
                 }
-            } else if (presetName === 'grid-4' && images.length < 4) {
-                const original = images[0];
-                while (images.length < 4) {
-                    images.push({
+            }
+
+            if (!images.length) return;
+
+            // Duplicação e regras específicas para cada layout
+            if (presetName === 'side-by-side') {
+                if (images.length === 1) {
+                    const original = images[0];
+                    const copy = {
                         ...original,
                         id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                         crop: { ...(original.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
-                    });
+                    };
+                    images.push(copy);
+                }
+            } else if (presetName === 'top-bottom') {
+                if (images.length === 1) {
+                    const original = images[0];
+                    const copy = {
+                        ...original,
+                        id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        crop: { ...(original.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
+                    };
+                    images.push(copy);
+                }
+            } else if (presetName === 'grid-4') {
+                if (images.length < 4) {
+                    const original = images[0];
+                    while (images.length < 4) {
+                        images.push({
+                            ...original,
+                            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                            crop: { ...(original.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
+                        });
+                    }
                 }
             }
 
@@ -848,45 +864,262 @@
         function render() {
             const canvasArea = document.getElementById('a4-canvas-area');
             if (!canvasArea) return;
-            canvasArea.innerHTML = '';
 
-            const areaRect = canvasArea.getBoundingClientRect();
             const { width: sheetW, height: sheetH } = getSheetCmDimensions();
 
-            images.forEach(img => {
-                const wrapper = document.createElement('div');
-                wrapper.className = `absolute cursor-pointer transition-shadow ${img.id === activeImageId ? 'ring-2 ring-indigo-500 z-10' : 'hover:ring-1 hover:ring-indigo-300'}`;
+            const currentIds = new Set(images.map(i => i.id));
+            Array.from(canvasArea.children).forEach(child => {
+                if (!currentIds.has(child.getAttribute('data-img-id'))) {
+                    child.remove();
+                }
+            });
 
-                // Cálculo de Posições percentuais para precisão total em qualquer tamanho de tela
+            images.forEach(img => {
+                let wrapper = canvasArea.querySelector(`[data-img-id="${img.id}"]`);
+                const isSelected = img.id === activeImageId;
+
+                if (!wrapper) {
+                    wrapper = document.createElement('div');
+                    wrapper.setAttribute('data-img-id', img.id);
+
+                    // Handler de Arraste da imagem
+                    const startDrag = (e) => {
+                        if (e.target.closest('.resize-handle')) return;
+                        e.stopPropagation();
+                        selectImage(img.id);
+
+                        const isTouch = e.type === 'touchstart';
+                        const startX = isTouch ? e.touches[0].clientX : e.clientX;
+                        const startY = isTouch ? e.touches[0].clientY : e.clientY;
+                        const initialX = img.xCm;
+                        const initialY = img.yCm;
+
+                        const areaRect = canvasArea.getBoundingClientRect();
+                        const pixelsPerCmX = areaRect.width / sheetW;
+                        const pixelsPerCmY = areaRect.height / sheetH;
+
+                        const onMove = (moveEv) => {
+                            const curX = moveEv.type === 'touchmove' ? moveEv.touches[0].clientX : moveEv.clientX;
+                            const curY = moveEv.type === 'touchmove' ? moveEv.touches[0].clientY : moveEv.clientY;
+
+                            const deltaXCm = (curX - startX) / pixelsPerCmX;
+                            const deltaYCm = (curY - startY) / pixelsPerCmY;
+
+                            img.xCm = Math.min(Math.max(initialX + deltaXCm, 0), Math.max(0, sheetW - img.widthCm));
+                            img.yCm = Math.min(Math.max(initialY + deltaYCm, 0), Math.max(0, sheetH - img.heightCm));
+
+                            wrapper.style.left = `${(img.xCm / sheetW) * 100}%`;
+                            wrapper.style.top = `${(img.yCm / sheetH) * 100}%`;
+
+                            updateControlsForActiveImage();
+                        };
+
+                        const onEnd = () => {
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onEnd);
+                            window.removeEventListener('touchmove', onMove);
+                            window.removeEventListener('touchend', onEnd);
+                            saveState();
+                        };
+
+                        if (isTouch) {
+                            window.addEventListener('touchmove', onMove, { passive: false });
+                            window.addEventListener('touchend', onEnd);
+                        } else {
+                            window.addEventListener('mousemove', onMove);
+                            window.addEventListener('mouseup', onEnd);
+                        }
+                    };
+
+                    wrapper.addEventListener('mousedown', startDrag);
+                    wrapper.addEventListener('touchstart', startDrag, { passive: false });
+
+                    wrapper.onclick = (e) => {
+                        e.stopPropagation();
+                        selectImage(img.id);
+                    };
+
+                    // Contêiner com overflow-hidden apenas para corte e rotação da imagem
+                    const cropInner = document.createElement('div');
+                    cropInner.className = 'crop-inner relative w-full h-full pointer-events-none overflow-hidden';
+
+                    const imgEl = document.createElement('img');
+                    imgEl.src = img.src;
+                    imgEl.className = 'absolute pointer-events-none block';
+
+                    cropInner.appendChild(imgEl);
+                    wrapper.appendChild(cropInner);
+                    canvasArea.appendChild(wrapper);
+                }
+
+                // Atualizar posição, dimensões e bordas do wrapper
                 wrapper.style.left = `${(img.xCm / sheetW) * 100}%`;
                 wrapper.style.top = `${(img.yCm / sheetH) * 100}%`;
                 wrapper.style.width = `${(img.widthCm / sheetW) * 100}%`;
                 wrapper.style.height = `${(img.heightCm / sheetH) * 100}%`;
 
-                if (borderStyleSetting === 'thin') wrapper.classList.add('img-border-thin');
-                if (borderStyleSetting === 'dashed') wrapper.classList.add('img-border-dashed');
-
-                wrapper.onclick = (e) => {
-                    e.stopPropagation();
-                    selectImage(img.id);
-                };
-
-                const imgEl = document.createElement('img');
-                imgEl.src = img.src;
+                wrapper.className = `absolute cursor-move overflow-visible ${isSelected ? 'ring-2 ring-indigo-500 z-10' : 'hover:ring-1 hover:ring-indigo-300 z-0'}`;
                 
-                const fitClass = imageFitSetting === 'cover' ? 'object-cover' : (imageFitSetting === 'fill' ? 'object-fill' : 'object-contain');
-                imgEl.className = `w-full h-full ${fitClass} pointer-events-none block`;
-                imgEl.style.transform = `rotate(${img.rotation || 0}deg)`;
+                if (borderStyleSetting === 'thin') wrapper.classList.add('img-border-thin');
+                else wrapper.classList.remove('img-border-thin');
 
-                // Aplicar corte manual de bordas em porcentagem
-                const crop = img.crop || { top: 0, right: 0, bottom: 0, left: 0 };
-                if (crop.top || crop.right || crop.bottom || crop.left) {
-                    imgEl.style.clipPath = `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`;
+                if (borderStyleSetting === 'dashed') wrapper.classList.add('img-border-dashed');
+                else wrapper.classList.remove('img-border-dashed');
+
+                // Atualizar estilos internos da foto
+                const cropInner = wrapper.querySelector('.crop-inner');
+                const imgEl = cropInner ? cropInner.querySelector('img') : null;
+
+                if (cropInner && imgEl) {
+                    cropInner.style.transform = `rotate(${img.rotation || 0}deg)`;
+
+                    const fitClass = imageFitSetting === 'cover' ? 'object-cover' : (imageFitSetting === 'fill' ? 'object-fill' : 'object-contain');
+                    imgEl.className = `absolute pointer-events-none block ${fitClass}`;
+
+                    const crop = img.crop || { top: 0, right: 0, bottom: 0, left: 0 };
+                    const cropLeft = crop.left || 0;
+                    const cropRight = crop.right || 0;
+                    const cropTop = crop.top || 0;
+                    const cropBottom = crop.bottom || 0;
+
+                    const visibleW = Math.max(100 - cropLeft - cropRight, 1);
+                    const visibleH = Math.max(100 - cropTop - cropBottom, 1);
+
+                    imgEl.style.width = `${(100 / visibleW) * 100}%`;
+                    imgEl.style.height = `${(100 / visibleH) * 100}%`;
+                    imgEl.style.left = `-${(cropLeft / visibleW) * 100}%`;
+                    imgEl.style.top = `-${(cropTop / visibleH) * 100}%`;
                 }
 
-                wrapper.appendChild(imgEl);
-                canvasArea.appendChild(wrapper);
+                // Atualizar os pontos de redimensionamento ao redor da foto selecionada
+                updateResizeHandles(wrapper, img, isSelected, sheetW, sheetH, canvasArea);
             });
+        }
+
+        function updateResizeHandles(wrapper, img, isSelected, sheetW, sheetH, canvasArea) {
+            let handlesContainer = wrapper.querySelector('.handles-container');
+
+            if (!isSelected) {
+                if (handlesContainer) handlesContainer.remove();
+                return;
+            }
+
+            if (!handlesContainer) {
+                handlesContainer = document.createElement('div');
+                handlesContainer.className = 'handles-container absolute inset-0 pointer-events-none z-20';
+
+                const handles = [
+                    { type: 'nw', class: 'top-0 left-0 cursor-nwse-resize' },
+                    { type: 'n', class: 'top-0 left-1/2 cursor-ns-resize' },
+                    { type: 'ne', class: 'top-0 left-full cursor-nesw-resize' },
+                    { type: 'e', class: 'top-1/2 left-full cursor-ew-resize' },
+                    { type: 'se', class: 'top-full left-full cursor-nwse-resize' },
+                    { type: 's', class: 'top-full left-1/2 cursor-ns-resize' },
+                    { type: 'sw', class: 'top-full left-0 cursor-nesw-resize' },
+                    { type: 'w', class: 'top-1/2 left-0 cursor-ew-resize' }
+                ];
+
+                handles.forEach(h => {
+                    const handleEl = document.createElement('div');
+                    handleEl.className = `resize-handle absolute w-3 h-3 bg-white border-2 border-indigo-600 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-auto shadow-md transition-transform hover:scale-125 ${h.class}`;
+                    handleEl.setAttribute('data-handle-type', h.type);
+
+                    const startResize = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        const isTouch = e.type === 'touchstart';
+                        const startMouseX = isTouch ? e.touches[0].clientX : e.clientX;
+                        const startMouseY = isTouch ? e.touches[0].clientY : e.clientY;
+
+                        const startX = img.xCm;
+                        const startY = img.yCm;
+                        const startW = img.widthCm;
+                        const startH = img.heightCm;
+
+                        const areaRect = canvasArea.getBoundingClientRect();
+                        const pxPerCmX = areaRect.width / sheetW;
+                        const pxPerCmY = areaRect.height / sheetH;
+
+                        const handleType = h.type;
+
+                        const onMove = (moveEv) => {
+                            const curMouseX = moveEv.type === 'touchmove' ? moveEv.touches[0].clientX : moveEv.clientX;
+                            const curMouseY = moveEv.type === 'touchmove' ? moveEv.touches[0].clientY : moveEv.clientY;
+
+                            const deltaXCm = (curMouseX - startMouseX) / pxPerCmX;
+                            const deltaYCm = (curMouseY - startMouseY) / pxPerCmY;
+
+                            let newX = startX;
+                            let newY = startY;
+                            let newW = startW;
+                            let newH = startH;
+
+                            const minDim = 0.8; // Tamanho mínimo de 0.8 cm
+
+                            if (handleType.includes('e')) {
+                                newW = Math.max(minDim, startW + deltaXCm);
+                            }
+                            if (handleType.includes('s')) {
+                                newH = Math.max(minDim, startH + deltaYCm);
+                            }
+                            if (handleType.includes('w')) {
+                                const maxDeltaX = startW - minDim;
+                                const actualDeltaX = Math.min(deltaXCm, maxDeltaX);
+                                newW = startW - actualDeltaX;
+                                newX = startX + actualDeltaX;
+                            }
+                            if (handleType.includes('n')) {
+                                const maxDeltaY = startH - minDim;
+                                const actualDeltaY = Math.min(deltaYCm, maxDeltaY);
+                                newH = startH - actualDeltaY;
+                                newY = startY + actualDeltaY;
+                            }
+
+                            // Garantir que não saia da folha A4
+                            newX = Math.max(0, Math.min(newX, sheetW - newW));
+                            newY = Math.max(0, Math.min(newY, sheetH - newH));
+                            if (newX + newW > sheetW) newW = sheetW - newX;
+                            if (newY + newH > sheetH) newH = sheetH - newY;
+
+                            img.xCm = newX;
+                            img.yCm = newY;
+                            img.widthCm = newW;
+                            img.heightCm = newH;
+
+                            wrapper.style.left = `${(img.xCm / sheetW) * 100}%`;
+                            wrapper.style.top = `${(img.yCm / sheetH) * 100}%`;
+                            wrapper.style.width = `${(img.widthCm / sheetW) * 100}%`;
+                            wrapper.style.height = `${(img.heightCm / sheetH) * 100}%`;
+
+                            updateControlsForActiveImage();
+                        };
+
+                        const onEnd = () => {
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onEnd);
+                            window.removeEventListener('touchmove', onMove);
+                            window.removeEventListener('touchend', onEnd);
+                            saveState();
+                        };
+
+                        if (isTouch) {
+                            window.addEventListener('touchmove', onMove, { passive: false });
+                            window.addEventListener('touchend', onEnd);
+                        } else {
+                            window.addEventListener('mousemove', onMove);
+                            window.addEventListener('mouseup', onEnd);
+                        }
+                    };
+
+                    handleEl.addEventListener('mousedown', startResize);
+                    handleEl.addEventListener('touchstart', startResize, { passive: false });
+
+                    handlesContainer.appendChild(handleEl);
+                });
+
+                wrapper.appendChild(handlesContainer);
+            }
         }
 
         function selectImage(id) {
@@ -896,60 +1129,135 @@
         }
 
         function deselectAll(e) {
-            if (e && e.target && e.target.closest('#sidebar')) return;
+            if (e && e.target && e.target.closest && e.target.closest('[data-img-id]')) return;
             activeImageId = null;
             render();
             updateControlsForActiveImage();
         }
 
+        function getActiveImage() {
+            return images.find(i => i.id === activeImageId);
+        }
+
         function deleteActiveImage() {
             if (!activeImageId) return;
-            const countBefore = images.length;
-            images = images.filter(img => img.id !== activeImageId);
-            activeImageId = images.length > 0 ? images[images.length - 1].id : null;
-
-            if (countBefore === 2 && images.length === 1) {
-                setOrientation('portrait', false);
-                applyPreset('fill-sheet', false);
-            } else {
-                render();
-            }
+            images = images.filter(i => i.id !== activeImageId);
+            activeImageId = null;
+            render();
             updateControlsForActiveImage();
             saveState();
         }
 
         function deleteAllImages() {
             if (!images.length) return;
-            images = [];
-            activeImageId = null;
+            if (confirm('Tem certeza que deseja remover todas as imagens da folha?')) {
+                images = [];
+                activeImageId = null;
+                render();
+                updateControlsForActiveImage();
+                saveState();
+            }
+        }
+
+        function rotateActiveImage90() {
+            const active = getActiveImage();
+            if (!active) return;
+            active.rotation = ((active.rotation || 0) + 90) % 360;
             render();
             updateControlsForActiveImage();
             saveState();
         }
 
+        function updateActiveImageRotationFromInput() {
+            const active = getActiveImage();
+            if (!active) return;
+            const val = parseInt(document.getElementById('input-rotate').value, 10) || 0;
+            active.rotation = val;
+            document.getElementById('rotation-angle-display').innerText = `${val}°`;
+            render();
+        }
+
+        function updateActiveImageFromInputs() {
+            const active = getActiveImage();
+            if (!active) return;
+
+            const { width: sheetW, height: sheetH } = getSheetCmDimensions();
+
+            const w = parseFloat(document.getElementById('input-width-cm').value) || active.widthCm;
+            const h = parseFloat(document.getElementById('input-height-cm').value) || active.heightCm;
+            const x = parseFloat(document.getElementById('input-x-cm').value) || 0;
+            const y = parseFloat(document.getElementById('input-y-cm').value) || 0;
+
+            active.widthCm = Math.min(Math.max(w, 0.8), sheetW);
+            active.heightCm = Math.min(Math.max(h, 0.8), sheetH);
+            active.xCm = Math.min(Math.max(x, 0), sheetW - active.widthCm);
+            active.yCm = Math.min(Math.max(y, 0), sheetH - active.heightCm);
+
+            render();
+            saveState();
+        }
+
+        function updateActiveImageCrop() {
+            const active = getActiveImage();
+            if (!active) return;
+
+            const left = parseInt(document.getElementById('input-crop-left').value, 10) || 0;
+            const right = parseInt(document.getElementById('input-crop-right').value, 10) || 0;
+            const top = parseInt(document.getElementById('input-crop-top').value, 10) || 0;
+            const bottom = parseInt(document.getElementById('input-crop-bottom').value, 10) || 0;
+
+            active.crop = { left, right, top, bottom };
+
+            document.getElementById('val-crop-left').innerText = `${left}%`;
+            document.getElementById('val-crop-right').innerText = `${right}%`;
+            document.getElementById('val-crop-top').innerText = `${top}%`;
+            document.getElementById('val-crop-bottom').innerText = `${bottom}%`;
+
+            render();
+        }
+
+        function resetImageCrop() {
+            const active = getActiveImage();
+            if (!active) return;
+            active.crop = { left: 0, right: 0, top: 0, bottom: 0 };
+            updateControlsForActiveImage();
+            render();
+            saveState();
+        }
+
+        function setQuickCrop(percent) {
+            const active = getActiveImage();
+            if (!active) return;
+            active.crop = { left: percent, right: percent, top: percent, bottom: percent };
+            updateControlsForActiveImage();
+            render();
+            saveState();
+        }
+
         function updateControlsForActiveImage() {
+            const active = getActiveImage();
             const panel = document.getElementById('selected-image-controls');
             const topTools = document.getElementById('top-selected-image-tools');
-            const activeImg = images.find(i => i.id === activeImageId);
 
-            if (!activeImg) {
-                panel.classList.add('opacity-50', 'pointer-events-none');
-                topTools.classList.add('opacity-50', 'pointer-events-none');
+            if (!active) {
+                if (panel) panel.className = 'space-y-3 pt-2 border-t border-slate-800 opacity-50 pointer-events-none transition-opacity';
+                if (topTools) topTools.className = 'bg-slate-950 p-1 rounded-lg border border-slate-800 flex items-center space-x-1 opacity-50 pointer-events-none transition-opacity shrink-0';
                 return;
             }
 
-            panel.classList.remove('opacity-50', 'pointer-events-none');
-            topTools.classList.remove('opacity-50', 'pointer-events-none');
+            if (panel) panel.className = 'space-y-3 pt-2 border-t border-slate-800 opacity-100 pointer-events-auto transition-opacity';
+            if (topTools) topTools.className = 'bg-slate-950 p-1 rounded-lg border border-slate-800 flex items-center space-x-1 opacity-100 pointer-events-auto transition-opacity shrink-0';
 
-            document.getElementById('input-width-cm').value = (activeImg.widthCm || 0).toFixed(1);
-            document.getElementById('input-height-cm').value = (activeImg.heightCm || 0).toFixed(1);
-            document.getElementById('input-x-cm').value = (activeImg.xCm || 0).toFixed(1);
-            document.getElementById('input-y-cm').value = (activeImg.yCm || 0).toFixed(1);
+            document.getElementById('input-width-cm').value = active.widthCm.toFixed(1);
+            document.getElementById('input-height-cm').value = active.heightCm.toFixed(1);
+            document.getElementById('input-x-cm').value = active.xCm.toFixed(1);
+            document.getElementById('input-y-cm').value = active.yCm.toFixed(1);
 
-            document.getElementById('input-rotate').value = activeImg.rotation || 0;
-            document.getElementById('rotation-angle-display').innerText = `${activeImg.rotation || 0}°`;
+            const rot = active.rotation || 0;
+            document.getElementById('input-rotate').value = rot.toString();
+            document.getElementById('rotation-angle-display').innerText = `${rot}°`;
 
-            const crop = activeImg.crop || { top: 0, right: 0, bottom: 0, left: 0 };
+            const crop = active.crop || { left: 0, right: 0, top: 0, bottom: 0 };
             document.getElementById('input-crop-left').value = crop.left || 0;
             document.getElementById('input-crop-right').value = crop.right || 0;
             document.getElementById('input-crop-top').value = crop.top || 0;
@@ -961,78 +1269,72 @@
             document.getElementById('val-crop-bottom').innerText = `${crop.bottom || 0}%`;
         }
 
-        function updateActiveImageFromInputs() {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
+        function setHeaderMode(mode, recordUndo = true) {
+            headerMode = mode;
+            document.getElementById('select-header-mode').value = mode;
 
-            const { width: sheetW, height: sheetH } = getSheetCmDimensions();
+            const singleHeader = document.getElementById('school-header-single');
+            const splitHeader = document.getElementById('school-header-split');
+            const customFields = document.getElementById('header-custom-fields');
 
-            let w = parseFloat(document.getElementById('input-width-cm').value) || activeImg.widthCm;
-            let h = parseFloat(document.getElementById('input-height-cm').value) || activeImg.heightCm;
-            let x = parseFloat(document.getElementById('input-x-cm').value) || 0;
-            let y = parseFloat(document.getElementById('input-y-cm').value) || 0;
-
-            // Clampar para garantir que não ultrapasse a folha A4
-            activeImg.widthCm = Math.min(Math.max(w, 0.5), sheetW);
-            activeImg.heightCm = Math.min(Math.max(h, 0.5), sheetH);
-            activeImg.xCm = Math.min(Math.max(x, 0), Math.max(0, sheetW - activeImg.widthCm));
-            activeImg.yCm = Math.min(Math.max(y, 0), Math.max(0, sheetH - activeImg.heightCm));
+            if (mode === 'single') {
+                singleHeader.classList.remove('hidden');
+                splitHeader.classList.add('hidden');
+                customFields.classList.remove('hidden');
+            } else if (mode === 'split') {
+                singleHeader.classList.add('hidden');
+                splitHeader.classList.remove('hidden');
+                customFields.classList.remove('hidden');
+            } else {
+                singleHeader.classList.add('hidden');
+                splitHeader.classList.add('hidden');
+                customFields.classList.add('hidden');
+            }
 
             render();
-            saveState();
+            if (recordUndo) saveState();
         }
 
-        function rotateActiveImage90() {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
-            activeImg.rotation = ((activeImg.rotation || 0) + 90) % 360;
-            render();
-            updateControlsForActiveImage();
-            saveState();
+        function updateHeaderValues() {
+            const actName = document.getElementById('input-activity-name')?.value || 'Atividade de Sala';
+            const tchName = document.getElementById('input-teacher-name')?.value || '';
+
+            const singleAct = document.getElementById('hdr-single-activity');
+            if (singleAct) singleAct.innerText = actName || 'Atividade de Sala';
+
+            const singleTch = document.getElementById('hdr-single-teacher-val');
+            if (singleTch) singleTch.innerText = tchName;
+
+            const splitTchs = document.querySelectorAll('.hdr-split-teacher-val');
+            splitTchs.forEach(el => el.innerText = tchName);
         }
 
-        function updateActiveImageRotationFromInput() {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
-            const val = parseInt(document.getElementById('input-rotate').value) || 0;
-            activeImg.rotation = val;
-            document.getElementById('rotation-angle-display').innerText = `${val}°`;
-            render();
-            saveState();
-        }
+        function handleSplitSideDoubleClick(sideIndex) {
+            const active = getActiveImage();
+            if (!active) return;
 
-        function updateActiveImageCrop() {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
-
-            activeImg.crop = {
-                left: parseInt(document.getElementById('input-crop-left').value) || 0,
-                right: parseInt(document.getElementById('input-crop-right').value) || 0,
-                top: parseInt(document.getElementById('input-crop-top').value) || 0,
-                bottom: parseInt(document.getElementById('input-crop-bottom').value) || 0
+            const copy = {
+                ...active,
+                id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                crop: { ...(active.crop || { top: 0, right: 0, bottom: 0, left: 0 }) }
             };
 
-            render();
-            updateControlsForActiveImage();
+            const { width: sheetW, height: sheetH } = getSheetCmDimensions();
+            const halfW = sheetW / 2;
+
+            copy.widthCm = halfW;
+            copy.heightCm = sheetH;
+            copy.xCm = sideIndex === 0 ? 0 : halfW;
+            copy.yCm = 0;
+
+            images.push(copy);
+            selectImage(copy.id);
             saveState();
         }
 
-        function resetImageCrop() {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
-            activeImg.crop = { top: 0, right: 0, bottom: 0, left: 0 };
-            render();
-            updateControlsForActiveImage();
-            saveState();
-        }
-
-        function setQuickCrop(val) {
-            const activeImg = images.find(i => i.id === activeImageId);
-            if (!activeImg) return;
-            activeImg.crop = { top: val, right: val, bottom: val, left: val };
-            render();
-            updateControlsForActiveImage();
-            saveState();
+        function setGapSetting(val) {
+            gapSettingCm = parseFloat(val) || 0;
+            applyPreset(lastPresetType, true);
         }
 
         function setBorderSetting(val) {
@@ -1047,95 +1349,43 @@
             saveState();
         }
 
-        function setGapSetting(val) {
-            gapSettingCm = parseFloat(val) || 0;
-            applyPreset(lastPresetType);
+        function setZoom(zoomVal) {
+            currentZoom = Math.min(Math.max(zoomVal, 0.3), 3.0);
+            const wrapper = document.getElementById('a4-wrapper');
+            if (wrapper) wrapper.style.transform = `scale(${currentZoom})`;
+            const label = document.getElementById('zoom-label');
+            if (label) label.innerText = `${Math.round(currentZoom * 100)}%`;
         }
 
-        function setHeaderMode(mode, recordUndo = true) {
-            headerMode = mode;
-            document.getElementById('select-header-mode').value = mode;
-
-            const singleHdr = document.getElementById('school-header-single');
-            const splitHdr = document.getElementById('school-header-split');
-            const customFields = document.getElementById('header-custom-fields');
-
-            singleHdr.classList.add('hidden');
-            splitHdr.classList.add('hidden');
-            customFields.classList.add('hidden');
-
-            if (mode === 'single') {
-                singleHdr.classList.remove('hidden');
-                customFields.classList.remove('hidden');
-            } else if (mode === 'split') {
-                splitHdr.classList.remove('hidden');
-                customFields.classList.remove('hidden');
-            }
-
-            if (images.length > 0) {
-                applyPreset(lastPresetType, false);
-            } else {
-                render();
-            }
-            if (recordUndo) saveState();
+        function zoomIn() {
+            setZoom(currentZoom + 0.1);
         }
 
-        function updateHeaderValues() {
-            const actVal = document.getElementById('input-activity-name').value || 'Atividade de Sala';
-            const tchVal = document.getElementById('input-teacher-name').value || '';
-
-            const hdrSingleAct = document.getElementById('hdr-single-activity');
-            if (hdrSingleAct) hdrSingleAct.innerText = actVal;
-
-            const hdrSingleTch = document.getElementById('hdr-single-teacher-val');
-            if (hdrSingleTch) hdrSingleTch.innerText = tchVal;
-
-            document.querySelectorAll('.hdr-split-teacher-val').forEach(el => {
-                el.innerText = tchVal;
-            });
-        }
-
-        function handleSplitSideDoubleClick(sideIndex) {
-            if (images.length === 1) {
-                applyPreset('side-by-side');
-            }
+        function zoomOut() {
+            setZoom(currentZoom - 0.1);
         }
 
         function fitToScreen() {
             const container = document.getElementById('a4-container');
-            const wrapper = document.getElementById('a4-wrapper');
-            const sheet = document.getElementById('a4-sheet');
+            if (!container) return;
 
-            if (!container || !wrapper || !sheet) return;
+            const containerW = container.clientWidth - 32;
+            const containerH = container.clientHeight - 32;
 
-            const padding = 32;
-            const availW = container.clientWidth - padding;
-            const availH = container.clientHeight - padding;
+            const isLandscape = orientation === 'landscape';
+            const sheetW = isLandscape ? 1122.5 : 793.7; // ~96 DPI
+            const sheetH = isLandscape ? 793.7 : 1122.5;
 
-            const sheetW = sheet.offsetWidth || (orientation === 'landscape' ? 1123 : 794);
-            const sheetH = sheet.offsetHeight || (orientation === 'landscape' ? 794 : 1123);
+            const scaleW = containerW / sheetW;
+            const scaleH = containerH / sheetH;
 
-            const scale = Math.min(availW / sheetW, availH / sheetH, 1.0);
-            currentZoom = scale;
-            wrapper.style.transform = `scale(${scale})`;
-            document.getElementById('zoom-label').innerText = `${Math.round(scale * 100)}%`;
-        }
-
-        function zoomIn() {
-            currentZoom = Math.min(currentZoom + 0.1, 2.0);
-            document.getElementById('a4-wrapper').style.transform = `scale(${currentZoom})`;
-            document.getElementById('zoom-label').innerText = `${Math.round(currentZoom * 100)}%`;
-        }
-
-        function zoomOut() {
-            currentZoom = Math.max(currentZoom - 0.1, 0.3);
-            document.getElementById('a4-wrapper').style.transform = `scale(${currentZoom})`;
-            document.getElementById('zoom-label').innerText = `${Math.round(currentZoom * 100)}%`;
+            const bestZoom = Math.min(scaleW, scaleH, 1.2);
+            setZoom(Math.max(bestZoom, 0.35));
         }
 
         function toggleFullScreen() {
             if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => console.log(err));
+                document.documentElement.requestFullscreen().catch(err => console.error(err));
             } else {
                 if (document.exitFullscreen) document.exitFullscreen();
             }
@@ -1145,70 +1395,86 @@
             const sidebar = document.getElementById('sidebar');
             const backdrop = document.getElementById('sidebar-backdrop');
             sidebar.classList.toggle('-translate-x-full');
-            backdrop.classList.toggle('opacity-0');
-            backdrop.classList.toggle('pointer-events-none');
+
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                backdrop.classList.remove('opacity-0', 'pointer-events-none');
+                backdrop.classList.add('opacity-100', 'pointer-events-auto');
+            } else {
+                backdrop.classList.remove('opacity-100', 'pointer-events-auto');
+                backdrop.classList.add('opacity-0', 'pointer-events-none');
+            }
         }
 
         function closeSidebarMobile() {
             const sidebar = document.getElementById('sidebar');
             const backdrop = document.getElementById('sidebar-backdrop');
             sidebar.classList.add('-translate-x-full');
-            backdrop.classList.add('opacity-0');
-            backdrop.classList.add('pointer-events-none');
-        }
-
-        function printCollage() {
-            deselectAll();
-            window.print();
+            backdrop.classList.remove('opacity-100', 'pointer-events-auto');
+            backdrop.classList.add('opacity-0', 'pointer-events-none');
         }
 
         async function saveAsJPG() {
-            deselectAll();
             const sheet = document.getElementById('a4-sheet');
             if (!sheet) return;
 
+            deselectAll({});
+
             try {
+                // Reset temporário de escala para renderização perfeita no canvas
+                const originalTransform = document.getElementById('a4-wrapper').style.transform;
+                document.getElementById('a4-wrapper').style.transform = 'none';
+
                 const canvas = await html2canvas(sheet, {
-                    scale: 2,
+                    scale: 3,
                     useCORS: true,
                     logging: false,
                     backgroundColor: '#ffffff'
                 });
 
+                document.getElementById('a4-wrapper').style.transform = originalTransform;
+
                 const link = document.createElement('a');
-                link.download = `colagem_a4_${Date.now()}.jpg`;
+                link.download = `colagem-a4-professores-${Date.now()}.jpg`;
                 link.href = canvas.toDataURL('image/jpeg', 0.95);
                 link.click();
             } catch (err) {
-                console.error('Erro ao exportar JPG:', err);
+                console.error('Erro ao gerar imagem JPG:', err);
             }
         }
 
+        function printCollage() {
+            deselectAll({});
+            window.print();
+        }
+
+        // Atalhos de Teclado (Ctrl+Z, Ctrl+Y, Delete)
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                if (e.shiftKey) redo();
+                else undo();
+                e.preventDefault();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+                redo();
+                e.preventDefault();
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (activeImageId) {
+                    deleteActiveImage();
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // Eventos Globais de Carregamento e Redimensionamento
         window.onload = function() {
-            lucide.createIcons();
-            setOrientation('landscape', false);
+            if (window.lucide) lucide.createIcons();
             fitToScreen();
             saveState();
+        };
 
-            window.addEventListener('resize', fitToScreen);
-
-            // Suporte para atalho de teclado Delete / Backspace
-            document.addEventListener('keydown', (e) => {
-                if ((e.key === 'Delete' || e.key === 'Backspace') && activeImageId) {
-                    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-                    deleteActiveImage();
-                }
-            });
-
-            // Suporte para Arrastar e Soltar Arquivos na Tela
-            const container = document.getElementById('a4-container');
-            container.addEventListener('dragover', (e) => e.preventDefault());
-            container.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (e.dataTransfer.files && e.dataTransfer.files.length) {
-                    handleFileUpload({ target: { files: e.dataTransfer.files } });
-                }
-            });
+        window.onresize = function() {
+            fitToScreen();
         };
     </script>
 </body>
