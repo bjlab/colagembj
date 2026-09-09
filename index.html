@@ -329,23 +329,6 @@
                         </button>
                     </div>
 
-                    <!-- Botões de Qualidade / Upscale -->
-                    <div class="space-y-1.5 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
-                        <span class="text-[10px] font-semibold text-slate-300 block flex items-center justify-between">
-                            <span>Qualidade & Nitidez (Upscale):</span>
-                            <span id="img-quality-status" class="text-[9px] text-emerald-400">Normal</span>
-                        </span>
-                        <div class="grid grid-cols-3 gap-1">
-                            <button onclick="enhanceActiveImage('hd')" class="py-1 px-1 bg-slate-800 hover:bg-indigo-900 text-slate-200 hover:text-white rounded text-[10px] border border-slate-700 transition-colors">HD</button>
-                            <button onclick="enhanceActiveImage('fullhd')" class="py-1 px-1 bg-slate-800 hover:bg-indigo-900 text-slate-200 hover:text-white rounded text-[10px] border border-slate-700 transition-colors">Full HD</button>
-                            <button onclick="enhanceActiveImage('ultrahd')" class="py-1 px-1 bg-slate-800 hover:bg-indigo-900 text-slate-200 hover:text-white rounded text-[10px] border border-slate-700 transition-colors">Ultra HD</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-1 pt-1">
-                            <button onclick="enhanceActiveImage('denoise')" class="py-1 px-1 bg-slate-800 hover:bg-indigo-900 text-slate-300 hover:text-white rounded text-[9px] border border-slate-700 transition-colors">Reduzir Ruído</button>
-                            <button onclick="enhanceActiveImage('sharpen')" class="py-1 px-1 bg-slate-800 hover:bg-indigo-900 text-slate-300 hover:text-white rounded text-[9px] border border-slate-700 transition-colors">Super Nitidez</button>
-                        </div>
-                    </div>
-
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div>
                             <span class="text-[10px] text-slate-400 block mb-0.5">Largura (cm):</span>
@@ -647,7 +630,6 @@
             event.target.value = '';
         }
 
-        // Suporte a colar com Ctrl+V na página
         window.addEventListener('paste', async (e) => {
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -693,12 +675,10 @@
                         resolve({
                             id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                             src: e.target.result,
-                            originalSrc: e.target.result,
                             aspectRatio: img.naturalWidth / img.naturalHeight,
                             rotation: 0,
                             crop: { top: 0, right: 0, bottom: 0, left: 0 },
-                            xCm: 0, yCm: 0, widthCm: sheetW / 2, heightCm: sheetH,
-                            qualityStatus: 'Normal'
+                            xCm: 0, yCm: 0, widthCm: sheetW / 2, heightCm: sheetH
                         });
                     };
                     img.onerror = reject;
@@ -729,12 +709,10 @@
                 pdfImages.push({
                     id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                     src: dataUrl,
-                    originalSrc: dataUrl,
                     aspectRatio: viewport.width / viewport.height,
                     rotation: 0,
                     crop: { top: 0, right: 0, bottom: 0, left: 0 },
-                    xCm: 0, yCm: 0, widthCm: sheetW / 2, heightCm: sheetH,
-                    qualityStatus: 'Normal'
+                    xCm: 0, yCm: 0, widthCm: sheetW / 2, heightCm: sheetH
                 });
             }
             return pdfImages;
@@ -762,7 +740,6 @@
                 btnLandscape.className = 'px-2 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white flex items-center space-x-1 transition-all';
             }
 
-            // Se mudou a orientação, converter coordenadas e dimensões das imagens proporcionalmente para não ficarem perdidas
             if (oldOrientation !== mode && images.length > 0) {
                 const oldW = oldOrientation === 'landscape' ? 29.7 : 21.0;
                 const oldH = oldOrientation === 'landscape' ? 21.0 : 29.7;
@@ -988,7 +965,7 @@
                     };
 
                     const cropInner = document.createElement('div');
-                    cropInner.className = 'crop-inner relative w-full h-full pointer-events-none overflow-hidden';
+                    cropInner.className = 'crop-inner relative w-full h-full overflow-hidden';
 
                     const imgEl = document.createElement('img');
                     imgEl.src = img.src;
@@ -1004,6 +981,9 @@
                 wrapper.style.width = `${(img.widthCm / sheetW) * 100}%`;
                 wrapper.style.height = `${(img.heightCm / sheetH) * 100}%`;
 
+                wrapper.style.transform = `rotate(${img.rotation || 0}deg)`;
+                wrapper.style.transformOrigin = 'center center';
+
                 wrapper.className = `absolute cursor-move overflow-visible ${isSelected ? 'ring-2 ring-indigo-500 z-10' : 'hover:ring-1 hover:ring-indigo-300 z-0'}`;
                 
                 if (borderStyleSetting === 'thin') wrapper.classList.add('img-border-thin');
@@ -1016,7 +996,7 @@
                 const imgEl = cropInner ? cropInner.querySelector('img') : null;
 
                 if (cropInner && imgEl) {
-                    cropInner.style.transform = `rotate(${img.rotation || 0}deg)`;
+                    cropInner.style.transform = 'none';
 
                     const fitClass = imageFitSetting === 'cover' ? 'object-cover' : (imageFitSetting === 'fill' ? 'object-fill' : 'object-contain');
                     imgEl.className = `absolute pointer-events-none block ${fitClass}`;
@@ -1050,7 +1030,7 @@
 
             if (!handlesContainer) {
                 handlesContainer = document.createElement('div');
-                handlesContainer.className = 'handles-container absolute inset-0 pointer-events-none z-20';
+                handlesContainer.className = 'handles-container absolute inset-0 pointer-events-none z-25';
 
                 const handles = [
                     { type: 'nw', class: 'top-0 left-0 cursor-nwse-resize' },
@@ -1271,62 +1251,10 @@
             saveState();
         }
 
-        // Função para melhorar a qualidade e nitidez das imagens
-        function enhanceActiveImage(type) {
-            const active = getActiveImage();
-            if (!active) return;
-
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function() {
-                let scale = 1.0;
-                let labelName = 'Normal';
-
-                if (type === 'hd') { scale = 1.5; labelName = 'HD (1.5x)'; }
-                else if (type === 'fullhd') { scale = 2.0; labelName = 'Full HD (2x)'; }
-                else if (type === 'ultrahd') { scale = 3.0; labelName = 'Ultra HD (3x)'; }
-                else if (type === 'denoise') { scale = 1.5; labelName = 'Reduzir Ruído'; }
-                else if (type === 'sharpen') { scale = 2.0; labelName = 'Super Nitidez'; }
-
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.round(img.naturalWidth * scale);
-                canvas.height = Math.round(img.naturalHeight * scale);
-                const ctx = canvas.getContext('2d');
-
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                if (type === 'sharpen' || type === 'fullhd' || type === 'ultrahd') {
-                    // Filtro simples de aumento de contraste/nitidez nos pixels
-                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imgData.data;
-                    const factor = 1.15; // fator de realce
-                    for (let i = 0; i < data.length; i += 4) {
-                        data[i] = Math.min(255, Math.max(0, data[i] * factor));
-                        data[i+1] = Math.min(255, Math.max(0, data[i+1] * factor));
-                        data[i+2] = Math.min(255, Math.max(0, data[i+2] * factor));
-                    }
-                    ctx.putImageData(imgData, 0, 0);
-                }
-
-                active.src = canvas.toDataURL('image/jpeg', 0.95);
-                active.qualityStatus = labelName;
-
-                const statusEl = document.getElementById('img-quality-status');
-                if (statusEl) statusEl.innerText = labelName;
-
-                render();
-                saveState();
-            };
-            img.src = active.originalSrc || active.src;
-        }
-
         function updateControlsForActiveImage() {
             const active = getActiveImage();
             const panel = document.getElementById('selected-image-controls');
             const topTools = document.getElementById('top-selected-image-tools');
-            const statusEl = document.getElementById('img-quality-status');
 
             if (!active) {
                 if (panel) panel.className = 'space-y-3 pt-2 border-t border-slate-800 opacity-50 pointer-events-none transition-opacity';
@@ -1336,7 +1264,6 @@
 
             if (panel) panel.className = 'space-y-3 pt-2 border-t border-slate-800 opacity-100 pointer-events-auto transition-opacity';
             if (topTools) topTools.className = 'bg-slate-950 p-1 rounded-lg border border-slate-800 flex items-center space-x-1 opacity-100 pointer-events-auto transition-opacity shrink-0';
-            if (statusEl) statusEl.innerText = active.qualityStatus || 'Normal';
 
             document.getElementById('input-width-cm').value = active.widthCm.toFixed(1);
             document.getElementById('input-height-cm').value = active.heightCm.toFixed(1);
